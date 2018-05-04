@@ -40,11 +40,22 @@ namespace AzureManagement.Function
                 return (ActionResult) new BadRequestObjectResult("Invalid content in body");
             }
 
-            string resourceGroupName = (string) data["resourceGroupName"];
-            string resourceId = (string) data["resourceId"];
-            string resourceType = (string) data["resourceProviderName"]["value"];
-            string subscriptionId = (string) data["subscriptionId"];       
+            string resourceGroupName = data.SelectToken("data.context.activityLog.resourceGroupName").Value<string>();
+            string resourceId = data.SelectToken("data.context.activityLog.resourceId").Value<string>();
+            string resourceType = data.SelectToken("data.context.activityLog.resourceProviderName.value").Value<string>();
+            string subscriptionId = data.SelectToken("data.context.activityLog.subscriptionId").Value<string>();
 
+            // string resourceId = (string) data["resourceId"];
+            // string resourceType = (string) data["resourceProviderName"]["value"];
+            // string subscriptionId = (string) data["subscriptionId"];   
+
+            if (string.IsNullOrEmpty(resourceGroupName))
+            {
+                log.Error("Failed to parse resourceGroupName in JSON");
+                return (ActionResult) new BadRequestObjectResult("Invalid content in body");
+            }    
+
+            log.Info(message: "Resource ID is: " + resourceId);
             log.Info(message: "Resource type is: " + resourceType);
 
             // If the resource type is listed in the invalid resources table, terminate
