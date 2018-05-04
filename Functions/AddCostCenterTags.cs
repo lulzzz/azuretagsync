@@ -19,6 +19,7 @@ namespace AzureManagement.Function
         [FunctionName("AddCostCenterTags")]
         public static IActionResult Run([HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)]HttpRequest req, TraceWriter log)
         {
+            const string API_VERSION = "2017-05-01";
             log.Info("C# HTTP trigger function processed a request.");
 
             List<string> targetTags = new List<string> { "costCenter", "businessUnit" };
