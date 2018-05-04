@@ -26,13 +26,8 @@ namespace AzureManagement.Function
             [Table("InvalidTagResources")] CloudTable invalidResources,
             TraceWriter log)
         {
-            const string API_VERSION = "2017-05-01";
-            log.Info("C# HTTP trigger function processed a request.");
-
-            // List<string> targetTags = new List<string> { "costCenter", "businessUnit" };
-
-            // Parse the incoming event data
             string requestBody = new StreamReader(req.Body).ReadToEnd();
+            log.Info(requestBody.ToString());
 
             JObject data;
             try
