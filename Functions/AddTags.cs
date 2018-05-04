@@ -27,7 +27,6 @@ namespace AzureManagement.Function
             TraceWriter log)
         {
             string requestBody = new StreamReader(req.Body).ReadToEnd();
-            log.Info(requestBody.ToString());
 
             JObject data;
             try
@@ -59,7 +58,7 @@ namespace AzureManagement.Function
             InvalidTagResource matchingInvalidResource = invalidTagResourcesQuery.Results.Where(x => x.Id == resourceId).FirstOrDefault();
             if (matchingInvalidResource != null)
             {
-                log.Info("Resource is listed as invalid for tags");
+                log.Error("Resource is listed as invalid for tags");
                 return (ActionResult)new OkObjectResult("OK");
             }
 
@@ -90,8 +89,16 @@ namespace AzureManagement.Function
             // Get latest API version for the resource type
             string apiVersion = provider.ResourceTypes[0].ApiVersions[0];
             var targetItem = client.Resources.GetById(resourceId, apiVersion);
-            var targetItemTags = targetItem.Tags;
 
+            // See if the object type is invalid for tags. If so, terminate
+            var invalidForTagsMatch = invalidTagResourcesQuery.Results.Where(x => x.Id == targetItem.Type);
+            if(invalidForTagsMatch != null)
+            {
+                log.Error("Resource is listed as invalid for tags");
+                return (ActionResult)new OkObjectResult("OK");
+            }
+
+            var targetItemTags = targetItem.Tags;
             foreach(var chargebackTag in chargebackTags)
             {
                 // TODO: only update with new key if it doesn't exist
@@ -107,7 +114,10 @@ namespace AzureManagement.Function
             catch(Exception ex)
             {
                 log.Error(ex.Message);
-                InvalidTagResource invalidItem = new InvalidTagResource { Id = resourceType, Message = ex.Message };
+                InvalidTagResource invalidItem = new InvalidTagResource { Id = targetItem.Type, 
+                    Message = ex.Message,
+                    RowKey = Guid.NewGuid().ToString(),
+                    PartitionKey = "test" };
 
                 // TODO: re-factor to handle write error
                 TableOperation insertOperation = TableOperation.InsertOrMerge(invalidItem);
