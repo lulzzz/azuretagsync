@@ -44,11 +44,7 @@ namespace AzureManagement.Function
             string resourceId = data.SelectToken("data.context.activityLog.resourceId").Value<string>();
             string resourceType = data.SelectToken("data.context.activityLog.resourceProviderName.value").Value<string>();
             string subscriptionId = data.SelectToken("data.context.activityLog.subscriptionId").Value<string>();
-
-            // string resourceId = (string) data["resourceId"];
-            // string resourceType = (string) data["resourceProviderName"]["value"];
-            // string subscriptionId = (string) data["subscriptionId"];   
-
+ 
             if (string.IsNullOrEmpty(resourceGroupName))
             {
                 log.Error("Failed to parse resourceGroupName in JSON");
