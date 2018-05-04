@@ -14,13 +14,14 @@ using System.Collections.Generic;
 using System;
 using System.Linq;
 using Microsoft.WindowsAzure.Storage.Table;
+using System.Threading.Tasks;
 
 namespace AzureManagement.Function
 {
     public static class AddTags
     {
         [FunctionName("AddTags")]
-        public static IActionResult Run([HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)]HttpRequest req,
+        public static async Task<IActionResult> RunAsync([HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)]HttpRequest req,
             [Table("RequiredTags")] CloudTable requiredTags,
             [Table("InvalidTagResources")] CloudTable invalidResources,
             TraceWriter log)
@@ -47,13 +48,13 @@ namespace AzureManagement.Function
             string resourceGroupName = (string) data["resourceGroupName"];
             string resourceId = (string) data["resourceId"];
             string resourceType = (string) data["resourceProviderName"]["value"];
-            string subscriptionId = (string) data["subscriptionId"];
+            string subscriptionId = (string) data["subscriptionId"];       
 
             log.Info(message: "Resource type is: " + resourceType);
 
             // If the resource type is listed in the invalid resources table, terminate
-            var invalidTagResourcesQuery = invalidResources.ExecuteQuerySegmentedAsync(new TableQuery<InvalidTagResource>(), null);
-            InvalidTagResource matchingInvalidResource = invalidTagResourcesQuery.Result.Where(x => x.Id == resourceId).FirstOrDefault();
+            var invalidTagResourcesQuery = await invalidResources.ExecuteQuerySegmentedAsync(new TableQuery<InvalidTagResource>(), null);
+            InvalidTagResource matchingInvalidResource = invalidTagResourcesQuery.Results.Where(x => x.Id == resourceId).FirstOrDefault();
             if (matchingInvalidResource != null)
             {
                 log.Info("Resource is listed as invalid for tags");
@@ -66,10 +67,16 @@ namespace AzureManagement.Function
             ResourceGroup rg = client.ResourceGroups.Get(resourceGroupName);
             var rgTags = rg.Tags;
 
-            var requiredTagsQuery = requiredTags.ExecuteQuerySegmentedAsync(new TableQuery<RequiredTag>(), null);
+            if (rgTags == null)
+            {
+                log.Warning("Resource group does not have tags. Exiting.");
+                return (ActionResult)new OkObjectResult("OK");
+            }
+
+            var requiredTagsQuery = await requiredTags.ExecuteQuerySegmentedAsync(new TableQuery<RequiredTag>(), null);
 
             Dictionary<string, string> chargebackTags = new Dictionary<string, string>();
-            foreach (RequiredTag requiredTagItem in requiredTagsQuery.Result)
+            foreach (RequiredTag requiredTagItem in requiredTagsQuery.Results)
             {
                 if (rgTags.ContainsKey(requiredTagItem.Name))
                 {
@@ -77,22 +84,33 @@ namespace AzureManagement.Function
                 }
             }
 
-            // Write the tag to the audit object
-            var targetItem = client.Resources.GetById(resourceId, API_VERSION);
+            var provider = client.Providers.Get(resourceType);
+            // Get latest API version for the resource type
+            string apiVersion = provider.ResourceTypes[0].ApiVersions[0];
+            var targetItem = client.Resources.GetById(resourceId, apiVersion);
             var targetItemTags = targetItem.Tags;
 
             foreach(var chargebackTag in chargebackTags)
             {
+                // TODO: only update with new key if it doesn't exist
                 targetItemTags.Add(chargebackTag.Key, chargebackTag.Value);
             }
 
+            targetItem.Tags = targetItemTags;
+
             try
             {
-                client.Resources.CreateOrUpdateById(resourceId, API_VERSION, new GenericResource { Tags = targetItemTags } );
+                client.Resources.CreateOrUpdateById(resourceId, apiVersion, targetItem );
             }
             catch(Exception ex)
             {
                 log.Error(ex.Message);
+                InvalidTagResource invalidItem = new InvalidTagResource { Id = resourceType, Message = ex.Message };
+
+                // TODO: re-factor to handle write error
+                TableOperation insertOperation = TableOperation.InsertOrMerge(invalidItem);
+                var result = await invalidResources.ExecuteAsync(insertOperation);
+
                 new BadRequestObjectResult("Failed to update object: " + ex.Message);
             }
 
