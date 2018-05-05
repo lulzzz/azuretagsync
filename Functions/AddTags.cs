@@ -114,7 +114,8 @@ namespace AzureManagement.Function
             catch(Exception ex)
             {
                 log.Error(ex.Message);
-                InvalidTagResource invalidItem = new InvalidTagResource { Id = targetItem.Type, 
+                InvalidTagResource invalidItem = new InvalidTagResource { 
+                    Id = targetItem.Type, 
                     Message = ex.Message,
                     RowKey = Guid.NewGuid().ToString(),
                     PartitionKey = "test" };
