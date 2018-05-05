@@ -80,13 +80,19 @@ namespace AzureManagement.Function
             string apiVersion = provider.ResourceTypes[0].ApiVersions[0];  // Get latest API version for the resource type
             var targetItem = client.Resources.GetById(resourceId, apiVersion);
 
+            if (targetItem.Type == null)
+            {
+                log.Error("Resource type is listed as invalid for tags.");
+                return (ActionResult)new OkObjectResult("OK");
+            }
+
             log.Info("Item type is: " + targetItem.Type);
 
             // See if the object type is invalid for tags. If so, terminate
             var invalidForTagsMatch = invalidTagResourcesQuery.Results.Where(x => x.Id == targetItem.Type).FirstOrDefault();
             if(invalidForTagsMatch != null)
             {
-                log.Error("Resource is listed as invalid for tags");
+                log.Error("Resource type is listed as invalid for tags");
                 return (ActionResult)new OkObjectResult("OK");
             }
 
