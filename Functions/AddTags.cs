@@ -68,9 +68,8 @@ namespace AzureManagement.Function
 
             // Get the Resource Group and its tags
             ResourceGroup rg = client.ResourceGroups.Get(resourceGroupName);
-            var rgTags = rg.Tags;
 
-            if (rgTags == null)
+            if (rg.Tags == null)
             {
                 log.Warning("Resource group does not have tags. Exiting.");
                 return (ActionResult)new OkObjectResult("OK");
@@ -102,9 +101,9 @@ namespace AzureManagement.Function
             Dictionary<string, string> chargebackTags = new Dictionary<string, string>();
             foreach (RequiredTag requiredTagItem in requiredTagsQuery.Results)
             {
-                if (rgTags.ContainsKey(requiredTagItem.Name))
+                if (rg.Tags.ContainsKey(requiredTagItem.Name))
                 {
-                    chargebackTags.Add(requiredTagItem.Name, rgTags[requiredTagItem.Name]);
+                    chargebackTags.Add(requiredTagItem.Name, rg.Tags[requiredTagItem.Name]);
                 }
             }
 
@@ -136,10 +135,10 @@ namespace AzureManagement.Function
                     PartitionKey = "test" };
 
                 // TODO: re-factor to handle write error
-                TableOperation insertOperation = TableOperation.InsertOrMerge(invalidItem);
-                var result = await invalidResources.ExecuteAsync(insertOperation);
+                // TableOperation insertOperation = TableOperation.InsertOrMerge(invalidItem);
+                // var result = await invalidResources.ExecuteAsync(insertOperation);
 
-                new BadRequestObjectResult("Failed to update object: " + ex.Message);
+                return (ActionResult) new BadRequestObjectResult("Failed to update object: " + ex.Message);
             }
 
             return (ActionResult) new OkObjectResult("Accepted");
