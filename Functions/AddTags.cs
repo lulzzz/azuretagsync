@@ -42,7 +42,9 @@ namespace AzureManagement.Function
             string resourceGroupName = data.SelectToken("data.context.activityLog.resourceGroupName").Value<string>();
             string resourceId = data.SelectToken("data.context.activityLog.resourceId").Value<string>();
             string resourceProvider = data.SelectToken("data.context.activityLog.resourceProviderName.value").Value<string>();
+            string resourceType = data.SelectToken("data.context.activityLog.resourceType.value").Value<string>();
             string subscriptionId = data.SelectToken("data.context.activityLog.subscriptionId").Value<string>();
+            string resourceTypeShortName = resourceType.Remove(0, resourceProvider.Length + 1);
  
             if (string.IsNullOrEmpty(resourceGroupName))
             {
@@ -51,7 +53,7 @@ namespace AzureManagement.Function
             }    
 
             log.Info(message: "Resource ID is: " + resourceId);
-            log.Info(message: "Resource provider is: " + resourceProvider);
+            log.Info(message: "Resource type is: " + resourceTypeShortName);
 
             // If the resource provider is listed in the invalid resources table, terminate
             // TODO: Consider removing this. What really matters is the resource 'type' (see later)
@@ -76,9 +78,22 @@ namespace AzureManagement.Function
             }
 
             var provider = client.Providers.Get(resourceProvider);
-            string apiVersion = provider.ResourceTypes[0].ApiVersions[0];  // Get latest API version for the resource type
-            var targetItem = client.Resources.GetById(resourceId, apiVersion);
 
+            var matchingType = provider.ResourceTypes.Where(x => x.ResourceType == resourceTypeShortName).FirstOrDefault();
+            string apiVersion = matchingType.ApiVersions[0];
+            // string apiVersion = provider.ResourceTypes[0].ApiVersions[0];  // Get latest API version for the resource type
+            
+            GenericResource targetItem = null;
+            try
+            {
+                targetItem = client.Resources.GetById(resourceId, apiVersion);
+            }
+            catch(Exception ex)
+            {
+                log.Error(ex.Message);
+                return (ActionResult) new BadRequestObjectResult("Failed to get object from ARM");
+            }
+                 
             if (targetItem.Type == null)
             {
                 log.Error("Resource type is listed as invalid for tags.");
@@ -134,14 +149,27 @@ namespace AzureManagement.Function
                     RowKey = Guid.NewGuid().ToString(),
                     PartitionKey = "test" };
 
-                // TODO: re-factor to handle write error
-                // TableOperation insertOperation = TableOperation.InsertOrMerge(invalidItem);
-                // var result = await invalidResources.ExecuteAsync(insertOperation);
-
+                TableOperation insertOperation = TableOperation.InsertOrMerge(invalidItem);
+                string result = await WriteInvalidTagResource(invalidResources, insertOperation);
                 return (ActionResult) new BadRequestObjectResult("Failed to update object: " + ex.Message);
             }
 
+            log.Info("Tags added");
             return (ActionResult) new OkObjectResult("Accepted");
+        }
+
+        static async Task<string> WriteInvalidTagResource(CloudTable table, TableOperation op)
+        {
+            try
+            {
+                await table.ExecuteAsync(op);
+                return "";
+            }
+            catch (Exception ex)
+            {
+                return ex.Message;
+            }
+
         }
 
         static TokenCredentials GetAccessToken()
