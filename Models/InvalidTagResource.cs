@@ -4,7 +4,7 @@ namespace AzureManagement.Models
 {
     public class InvalidTagResource : TableEntity
     {
-        public string Id { get; set; }
+        public string Type { get; set; }
         public string Message { get; set; }
     }
 }
