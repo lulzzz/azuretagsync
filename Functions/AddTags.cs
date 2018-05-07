@@ -9,6 +9,7 @@ using Microsoft.Azure.Management.ResourceManager.Fluent;
 using Microsoft.Azure.Management.ResourceManager.Fluent.Models;
 using Microsoft.WindowsAzure.Storage.Table;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace AzureManagement.Function
 {
@@ -32,36 +33,35 @@ namespace AzureManagement.Function
                 resource = await client.Resources.GetByIdAsync(updateItem.Id, updateItem.ApiVersion);
                 resource.Tags = updateItem.Tags;
                 resource.Properties = null;  // some resource types support PATCH operations ONLY on tags.
-                // resource.Tags.Add()
                 await client.Resources.UpdateByIdAsync(updateItem.Id, updateItem.ApiVersion, resource);
             }
             catch(Exception ex)
             {
-                log.Error(resource.Id + " failed with: " + ex.Message);
-                InvalidTagResource invalidItem = new InvalidTagResource { 
-                    Type = updateItem.Type, 
-                    Message = ex.Message,
-                    RowKey = Guid.NewGuid().ToString(),
-                    PartitionKey = updateItem.Subscription };
+                if( resource == null)
+                {
+                    log.Error("Failed to get resource: " + updateItem.Id);
+                    log.Error("Error is: " + ex.Message);
+                }
+                else
+                    log.Error(resource.Id + " failed with: " + ex.Message);
+                
+                var invalidTagResourcesQuery = await invalidResourceTable.ExecuteQuerySegmentedAsync(new TableQuery<InvalidTagResource>(), null);
+                InvalidTagResource matchingInvalidResource = invalidTagResourcesQuery.Results.Where(x => x.Type == updateItem.Type).FirstOrDefault();
 
-                TableOperation insertOperation = TableOperation.InsertOrReplace(invalidItem);
-                await invalidResourceTable.ExecuteAsync(insertOperation);
-                // await WriteInvalidTagResource(invalidResourceTable, insertOperation);
-            }
-        }
+                if (matchingInvalidResource == null)
+                {
+                    InvalidTagResource invalidItem = new InvalidTagResource
+                    { 
+                        Type = updateItem.Type, 
+                        Message = ex.Message,
+                        RowKey = Guid.NewGuid().ToString(),
+                        PartitionKey = updateItem.Subscription
+                    };
 
-        static async Task<string> WriteInvalidTagResource(CloudTable table, TableOperation op)
-        {
-            try
-            {
-                await table.ExecuteAsync(op);
-                return "";
+                    TableOperation insertOperation = TableOperation.InsertOrReplace(invalidItem);
+                    await invalidResourceTable.ExecuteAsync(insertOperation);
+                }
             }
-            catch (Exception ex)
-            {
-                return ex.Message;
-            }
-
         }
 
         static TokenCredentials GetAccessToken()
@@ -74,7 +74,5 @@ namespace AzureManagement.Function
             AuthenticationResult token = authContext.AcquireTokenAsync("https://management.core.windows.net/", credential).Result;
             return new TokenCredentials(token.AccessToken);
         }
-
-
     }
 }

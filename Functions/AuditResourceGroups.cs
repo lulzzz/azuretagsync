@@ -44,7 +44,7 @@ namespace AzureManagement.Function
 
             foreach(ResourceGroupInner rg in resourceGroups)
             {
-                log.Info(rg.Name);
+                log.Info("*** Resource Group" + rg.Name);
 
                 Dictionary<string, string> requiredRgTags = new Dictionary<string, string>();
                 foreach (RequiredTag tag in requiredTagsQuery.Results)
@@ -96,6 +96,7 @@ namespace AzureManagement.Function
                             
                                 string messageText = JsonConvert.SerializeObject(newItem);
                                 outQueue.Add(messageText);
+                                log.Info("Requesting tags for: " + resource.Id);
                             }
                         }
                         else
