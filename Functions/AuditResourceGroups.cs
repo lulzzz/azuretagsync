@@ -34,22 +34,10 @@ namespace AzureManagement.Function
         {
             log.Info("C# HTTP trigger function processed a request.");
 
-            // string appId = Environment.GetEnvironmentVariable("appId");
-            // string appSecret = Environment.GetEnvironmentVariable("appSecret");
-            // string tenantId = Environment.GetEnvironmentVariable("tenantId");
-            // string subscriptionId = "cecea5c9-0754-4a7f-b5a9-46ae68dcafd3";
-
-            // var creds = new AzureCredentialsFactory().FromServicePrincipal(appId, appSecret, tenantId, AzureEnvironment.AzureGlobalCloud);
-            // var azure = Azure.Authenticate(creds).WithSubscription(subscriptionId);
-            // IEnumerable<IResourceGroup> resourceGroups = azure.ResourceGroups.List();
-            // IEnumerable<ResourceGroupInner> resourceGroups = await client.ResourceGroups.ListAsync();
-
             string subscriptionId = "cecea5c9-0754-4a7f-b5a9-46ae68dcafd3";
             var client = new ResourceManagementClient(GetAccessToken());
             client.SubscriptionId = subscriptionId;
 
-            // Get data: subscription resources, resource groups, types that don't support tags, and required tags
-            // IEnumerable<GenericResourceInner> resources = await client.Resources.ListAsync();
             IEnumerable<ResourceGroupInner> resourceGroups = await client.ResourceGroups.ListAsync();          
             var invalidTagResourcesQuery = await invalidTypesTbl.ExecuteQuerySegmentedAsync(new TableQuery<InvalidTagResource>(), null);
             var requiredTagsQuery = await requiredTagsTbl.ExecuteQuerySegmentedAsync(new TableQuery<RequiredTag>(), null);
@@ -92,30 +80,23 @@ namespace AzureManagement.Function
                                 log.Error(ex.Message);
                                 break;
                             }
-                            
-                            foreach(var tag in requiredRgTags)
-                            {
-                                if (resource.Tags == null)
-                                {
-                                    resource.Tags = requiredRgTags;
-                                }
-                                else if ( resource.Tags.ContainsKey(tag.Key) )
-                                {
-                                    resource.Tags[tag.Key] = tag.Value;
-                                }
-                                else { resource.Tags.Add(tag); }
-                            }
 
-                            ResourceItem newItem = new ResourceItem {   Id = resource.Id, 
-                                                                        ApiVersion = apiVersion,
-                                                                        Location = resource.Location,
-                                                                        Tags = resource.Tags,
-                                                                        Type = resource.Type,
-                                                                        Subscription = subscriptionId
-                                                                    };
+                            var result = SetTags(resource.Tags, requiredRgTags);
+
+                            if (result.Count > 0)
+                            {
+                                resource.Tags = result;
+                                ResourceItem newItem = new ResourceItem {   Id = resource.Id, 
+                                            ApiVersion = apiVersion,
+                                            Location = resource.Location,
+                                            Tags = resource.Tags,
+                                            Type = resource.Type,
+                                            Subscription = subscriptionId
+                                        };
                             
-                            string messageText = JsonConvert.SerializeObject(newItem);
-                            outQueue.Add(messageText);
+                                string messageText = JsonConvert.SerializeObject(newItem);
+                                outQueue.Add(messageText);
+                            }
                         }
                         else
                         {
@@ -127,6 +108,42 @@ namespace AzureManagement.Function
             }
 
             return (ActionResult)new OkObjectResult("OK");
+        }
+
+        static IDictionary<string, string> SetTags(IDictionary <string, string> resourceTags, Dictionary <string, string> requiredTags)
+        {
+            bool tagUpadateRequired = false;
+
+            foreach(var requiredTag in requiredTags)
+            {
+                if (resourceTags == null) // resource does not have any tags. Set to the RG required tags and exit.
+                {
+                    return requiredTags;
+                }
+                if ( resourceTags.ContainsKey(requiredTag.Key) ) // resource has a matching rquired RG tag.
+                {
+                    if (resourceTags[requiredTag.Key] != requiredTag.Value) // update resource tag value if it doesn't match the current RG tag
+                    {
+                        resourceTags[requiredTag.Key] = requiredTag.Value;
+                        tagUpadateRequired = true;
+                    }
+                }
+                else
+                {
+                    resourceTags.Add(requiredTag);
+                    tagUpadateRequired = true;
+                }
+            }
+
+            if (tagUpadateRequired)
+            {
+                return resourceTags;
+            }
+            else
+            {
+                return new Dictionary<string, string>();
+            }
+
         }
 
         static async Task<string> GetApiVersion(ResourceManagementClient client, string resource)

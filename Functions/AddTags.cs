@@ -15,7 +15,7 @@ namespace AzureManagement.Function
     public static class AddTags
     {
         [FunctionName("AddTags")]
-        public static async void Run([QueueTrigger("resources-to-tag", Connection = "AzureWebJobsStorage")]string myQueueItem,
+        public static async void Run([QueueTrigger("resources-to-tag", Connection = "AzureWebJobsStorage"), Disable("true")]string myQueueItem,
             [Table("InvalidTagResources")] CloudTable invalidResourceTable,
             TraceWriter log)
         {
@@ -25,12 +25,14 @@ namespace AzureManagement.Function
 
             var client = new ResourceManagementClient(GetAccessToken());
             client.SubscriptionId = updateItem.Subscription;
-
-            GenericResourceInner resource = await client.Resources.GetByIdAsync(updateItem.Id, updateItem.ApiVersion);
-            resource.Tags = updateItem.Tags;
+            GenericResourceInner resource = null;
 
             try
             {
+                resource = await client.Resources.GetByIdAsync(updateItem.Id, updateItem.ApiVersion);
+                resource.Tags = updateItem.Tags;
+                resource.Properties = null;  // some resource types support PATCH operations ONLY on tags.
+                // resource.Tags.Add()
                 await client.Resources.UpdateByIdAsync(updateItem.Id, updateItem.ApiVersion, resource);
             }
             catch(Exception ex)
@@ -46,7 +48,6 @@ namespace AzureManagement.Function
                 await invalidResourceTable.ExecuteAsync(insertOperation);
                 // await WriteInvalidTagResource(invalidResourceTable, insertOperation);
             }
-
         }
 
         static async Task<string> WriteInvalidTagResource(CloudTable table, TableOperation op)
