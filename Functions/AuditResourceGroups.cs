@@ -27,85 +27,92 @@ namespace AzureManagement.Function
         [FunctionName("AuditResourceGroups")]
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)]HttpRequest req,
-            [Table("RequiredTags")] CloudTable requiredTagsTbl,
+            [Table("AuditConfig")] CloudTable auditConfigTable,
             [Table("InvalidTagResources")] CloudTable invalidTypesTbl,
             [Queue("resources-to-tag")] ICollector<string> outQueue,
             TraceWriter log )
         {
             log.Info("C# HTTP trigger function processed a request.");
-
-            string subscriptionId = "cecea5c9-0754-4a7f-b5a9-46ae68dcafd3";
-            var client = new ResourceManagementClient(GetAccessToken());
-            client.SubscriptionId = subscriptionId;
-
-            IEnumerable<ResourceGroupInner> resourceGroups = await client.ResourceGroups.ListAsync();          
+       
             var invalidTagResourcesQuery = await invalidTypesTbl.ExecuteQuerySegmentedAsync(new TableQuery<InvalidTagResource>(), null);
-            var requiredTagsQuery = await requiredTagsTbl.ExecuteQuerySegmentedAsync(new TableQuery<RequiredTag>(), null);
+            var auditConfigQuery = await auditConfigTable.ExecuteQuerySegmentedAsync(new TableQuery<AuditConfig>(), null);
 
-            foreach(ResourceGroupInner rg in resourceGroups)
+            // string subscriptionId = "cecea5c9-0754-4a7f-b5a9-46ae68dcafd3";
+            var client = new ResourceManagementClient(GetAccessToken());
+
+            foreach(var auditConfig in auditConfigQuery.Results)
             {
-                log.Info("*** Resource Group" + rg.Name);
 
-                Dictionary<string, string> requiredRgTags = new Dictionary<string, string>();
-                foreach (RequiredTag tag in requiredTagsQuery.Results)
+                IEnumerable<string> requiredTagsList = auditConfig.RequiredTags.Split(',');
+                client.SubscriptionId = auditConfig.SubscriptionId;
+                IEnumerable<ResourceGroupInner> resourceGroups = await client.ResourceGroups.ListAsync();
+
+                foreach(ResourceGroupInner rg in resourceGroups)
                 {
-                    if (rg.Tags != null && rg.Tags.ContainsKey(tag.Name))
+                    log.Info("*** Resource Group: " + rg.Name);
+
+                    Dictionary<string, string> requiredRgTags = new Dictionary<string, string>();
+                    foreach (string tagKey in requiredTagsList)
                     {
-                        requiredRgTags.Add(tag.Name, rg.Tags[tag.Name]);
-                    }
-                }
-
-                if (requiredRgTags.Count < 1)
-                { 
-                    log.Warning("Resource group: " + rg.Name + " does not have required tags.");
-                }
-                else
-                {
-                    IEnumerable<GenericResourceInner> resources = await client.Resources.ListByResourceGroupAsync(rg.Name);
-
-                    foreach(var resource in resources)
-                    {
-                        InvalidTagResource invalidResourceMatch = invalidTagResourcesQuery.Results.Where(x => x.Type == resource.Type).FirstOrDefault();
-
-                        if (invalidResourceMatch == null)
+                        if (rg.Tags != null && rg.Tags.ContainsKey(tagKey))
                         {
-                            string apiVersion;
-                            
-                            try
-                            {
-                                apiVersion = await GetApiVersion(client, resource.Type);
-                            }
-                            catch(Exception ex)
-                            {
-                                log.Error(ex.Message);
-                                break;
-                            }
-
-                            var result = SetTags(resource.Tags, requiredRgTags);
-
-                            if (result.Count > 0)
-                            {
-                                resource.Tags = result;
-                                ResourceItem newItem = new ResourceItem {   Id = resource.Id, 
-                                            ApiVersion = apiVersion,
-                                            Location = resource.Location,
-                                            Tags = resource.Tags,
-                                            Type = resource.Type,
-                                            Subscription = subscriptionId
-                                        };
-                            
-                                string messageText = JsonConvert.SerializeObject(newItem);
-                                outQueue.Add(messageText);
-                                log.Info("Requesting tags for: " + resource.Id);
-                            }
-                        }
-                        else
-                        {
-                            log.Warning("Item type does not support tagging: " + resource.Type);
+                            requiredRgTags.Add(tagKey, rg.Tags[tagKey]);
                         }
                     }
 
+                    if (requiredRgTags.Count < 1)
+                    { 
+                        log.Warning("Resource group: " + rg.Name + " does not have required tags.");
+                    }
+                    else
+                    {
+                        IEnumerable<GenericResourceInner> resources = await client.Resources.ListByResourceGroupAsync(rg.Name);
+
+                        foreach(var resource in resources)
+                        {
+                            InvalidTagResource invalidResourceMatch = invalidTagResourcesQuery.Results.Where(x => x.Type == resource.Type).FirstOrDefault();
+
+                            if (invalidResourceMatch == null)
+                            {
+                                string apiVersion;
+                                
+                                try
+                                {
+                                    apiVersion = await GetApiVersion(client, resource.Type);
+                                }
+                                catch(Exception ex)
+                                {
+                                    log.Error(ex.Message);
+                                    break;
+                                }
+
+                                var result = SetTags(resource.Tags, requiredRgTags);
+
+                                if (result.Count > 0)
+                                {
+                                    resource.Tags = result;
+                                    ResourceItem newItem = new ResourceItem {   Id = resource.Id, 
+                                                ApiVersion = apiVersion,
+                                                Location = resource.Location,
+                                                Tags = resource.Tags,
+                                                Type = resource.Type,
+                                                Subscription = auditConfig.SubscriptionId
+                                            };
+                                
+                                    string messageText = JsonConvert.SerializeObject(newItem);
+                                    outQueue.Add(messageText);
+                                    log.Info("Requesting tags for: " + resource.Id);
+                                }
+                            }
+                            else
+                            {
+                                log.Warning("Item type does not support tagging: " + resource.Type);
+                            }
+                        }
+
+                    }
                 }
+
             }
 
             return (ActionResult)new OkObjectResult("OK");
