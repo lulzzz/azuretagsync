@@ -61,5 +61,31 @@ Finally, clone the repository to your workstation and open the root folder in VS
 <img src="images/deploy-function.png" width=30%>
 
 
-# FAQ
-TBD
+# Configuration and Operation
+By default, the ```AuditSubscriptionTags``` function runs once every 4 hours. The ```AddTags``` function is triggered by messages placed into the ```resources-to-tag``` queue created earler. You can manually initialize the process by clicking the Run button on ```AuditSubscriptionTags``` the portal. It is recommended to do this once after the deployment has been completed so that the columns for the ```AuditConfigTable``` are created.
+
+When in operation, the solution works by interacting with the tables hosted in the Storage Account.
+
+## AuditConfig
+For each subscription you wish to audit, you must define a configuration item for it in the AuditConfig table. Configuration currently consists of two columns.
+
+- ```SubscriptionId```: The GUID (ID) that represents the subscription.
+
+- ```RequiredTags```: A comma separated list of tags that must be synchronized from the resource group to the resource item.
+
+Once configuraiton is completed, your table shoud look like the following:
+
+<img src="images/audit-config-table.png" width=75%>
+
+## AuditStats
+Information about every subscription audit performed by ```AuditSubscriptionTags``` is recorded in this table.
+
+## InvalidTagResources
+Azure does not currently have a unified API for resource tagging. There are cases where exeptions will be thrown when attempting to tag certain resource types. These exceptions are handled by the ```AddTags``` function and written to this table.
+
+ <img src="images/invalid-tag-resources.png" width=75%>
+
+ When invoked, ```AuditSubscriptionTags``` reads all items from this table and skips any resource that matches a given Type. That way, repeated API calls that are known to fail are not made. Developers can use the information to update the code to better handle these specific resources. Administrators can use this table to tag these resources either via a script or manually.
+
+ # FAQ
+ TBD
