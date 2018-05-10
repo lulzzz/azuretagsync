@@ -35,6 +35,8 @@ Once the Function App is created, a few follow-up configurations are necessary:
 ### Upgrade function runtime
 In the Azure Portal, navigate to the Function App and select *Function App Settings*. Switch the runtime version to **beta**.
 
+NOTE: At the time of this writing, there are issues with the latest beta runtime. For this applicaiton to work, you will need to navigate to Application Settings and set the value of FUNCTIONS_EXTENSION_VERSION to **2.0.11651-alpha**.
+
 ### Configure the App Settings
 Next, navigate to *Application Settings*. In the Application Settings section of that page, add the following settings:
 
