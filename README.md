@@ -58,7 +58,7 @@ In the same storage account, use Storage Explorer to create a new queue with the
 ## Deploy the Functions
 Finally, clone the repository to your workstation and open the root folder in VS Code. Assuming you have the Azure Functions extension installed, you can deploy to your Function App by navigating to the **bin/Debug/netstandard2.0** folder and right-clicking. In the dialogue menu, select *Deploy to Function App*. You will be prompted to select a valid function app in your subscription. Use the one you created earlier.
 
-<img src="images/deploy-function.png" width=50%>
+<img src="images/deploy-function.png" width=30%>
 
 
 # FAQ
