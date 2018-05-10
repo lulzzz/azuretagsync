@@ -28,10 +28,10 @@ namespace AzureManagement.Function
         static ResourceManagementClient _client;
 
         [FunctionName("AuditResourceGroups")]
-        public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)]HttpRequest req,
-            [Table("AuditConfig")] CloudTable auditConfigTbl,
-            [Table("AuditStats")] CloudTable auditStatsTbl,
+        public static async Task Run(
+            [TimerTrigger("0 0 */2 * * *", RunOnStartup=true)]TimerInfo myTimer,
+            [Table("AuditConfig")] CloudTable configTbl,
+            [Table("AuditStats")] CloudTable statsTbl,
             [Table("InvalidTagResources")] CloudTable invalidTypesTbl,
             [Queue("resources-to-tag")] ICollector<string> outQueue,
             TraceWriter log )
@@ -40,10 +40,20 @@ namespace AzureManagement.Function
             _outQueue = outQueue;
             log.Info("Starding subscription audit.");
             var invalidTagResourcesQuery = await invalidTypesTbl.ExecuteQuerySegmentedAsync(new TableQuery<InvalidTagResource>(), null);
-            var auditConfigQuery = await auditConfigTbl.ExecuteQuerySegmentedAsync(new TableQuery<AuditConfig>(), null);
+            var auditConfigQuery = await configTbl.ExecuteQuerySegmentedAsync(new TableQuery<AuditConfig>(), null);
             _client = new ResourceManagementClient(GetAccessToken());
 
-            foreach(var auditConfig in auditConfigQuery.Results)
+            // Init config table if new deployment
+            if (auditConfigQuery.Results.Count == 0)
+            {
+                AuditConfig initConfig = new AuditConfig { SubscriptionId = "enter_valid_subscription_id", RowKey = Guid.NewGuid().ToString(), RequiredTags = "comma,separated,tag,list,here", PartitionKey = "init" };
+                TableOperation insertOperation = TableOperation.InsertOrReplace(initConfig);
+                await configTbl.ExecuteAsync(insertOperation);
+                log.Info("First run for new deployment. Please populate the AuditConfig table.");
+                return;
+            }
+
+            foreach (var auditConfig in auditConfigQuery.Results)
             {
                 AuditStats stats = new AuditStats { JobStart= DateTime.Now, PartitionKey = auditConfig.SubscriptionId, RowKey = Guid.NewGuid().ToString() };
                 IEnumerable<string> requiredTagsList = auditConfig.RequiredTags.Split(',');
@@ -55,10 +65,8 @@ namespace AzureManagement.Function
                 stats.JobEnd = DateTime.Now;
 
                 TableOperation insertOperation = TableOperation.InsertOrReplace(stats);
-                await auditStatsTbl.ExecuteAsync(insertOperation);
+                await statsTbl.ExecuteAsync(insertOperation);
             }
-
-            return (ActionResult)new OkObjectResult("OK");
         }
 
         static async Task ProcessResourceGroups(IEnumerable<string> requiredTagsList, IEnumerable<ResourceGroupInner> resourceGroups, List<InvalidTagResource> invalidTypes, string subscriptionId, AuditStats stats )
