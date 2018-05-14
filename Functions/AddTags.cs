@@ -45,8 +45,11 @@ namespace AzureManagement.Function
                 else
                     log.Error(resource.Id + " failed with: " + ex.Message);
                 
+                InvalidTagResource matchingInvalidResource = null;
                 var invalidTagResourcesQuery = await invalidResourceTable.ExecuteQuerySegmentedAsync(new TableQuery<InvalidTagResource>(), null);
-                InvalidTagResource matchingInvalidResource = invalidTagResourcesQuery.Results.Where(x => x.Type == updateItem.Type).FirstOrDefault();
+
+                if (invalidTagResourcesQuery.Results != null)
+                    matchingInvalidResource = invalidTagResourcesQuery.Results.Where(x => x.Type == updateItem.Type).FirstOrDefault();
 
                 if (matchingInvalidResource == null)
                 {
