@@ -59,6 +59,7 @@ namespace AzureManagement.Function
                 log.Info("Using MSI");
                 var azureServiceTokenProvider = new AzureServiceTokenProvider();
                 string token = await azureServiceTokenProvider.GetAccessTokenAsync("https://management.azure.com/");
+                log.Info("MSI Token is: " + token);
                 tokenCredential = new TokenCredentials(token);
                 // _client = new ResourceManagementClient(new TokenCredentials(token));
             }
