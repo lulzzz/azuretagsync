@@ -84,17 +84,26 @@ namespace AzureManagement.Function
 
             foreach (var auditConfig in auditConfigQuery.Results)
             {
-                AuditStats stats = new AuditStats { JobStart= DateTime.Now, PartitionKey = auditConfig.SubscriptionId, RowKey = Guid.NewGuid().ToString() };
-                IEnumerable<string> requiredTagsList = auditConfig.RequiredTags.Split(',');
-                _client.SubscriptionId = auditConfig.SubscriptionId;
-                IEnumerable<ResourceGroupInner> resourceGroups = await _client.ResourceGroups.ListAsync();
-                stats.ResourceGroupsTotal = resourceGroups.Count();
-                await ProcessResourceGroups(requiredTagsList, resourceGroups, invalidTagResourcesQuery.Results, auditConfig.SubscriptionId, stats);
-                log.Info("Completed audit of subscription: " + auditConfig.SubscriptionId);
-                stats.JobEnd = DateTime.Now;
+                try
+                {
+                    AuditStats stats = new AuditStats { JobStart= DateTime.Now, PartitionKey = auditConfig.SubscriptionId, RowKey = Guid.NewGuid().ToString() };
+                    IEnumerable<string> requiredTagsList = auditConfig.RequiredTags.Split(',');
+                    _client.SubscriptionId = auditConfig.SubscriptionId;
+                    IEnumerable<ResourceGroupInner> resourceGroups = await _client.ResourceGroups.ListAsync();
+                    stats.ResourceGroupsTotal = resourceGroups.Count();
+                    await ProcessResourceGroups(requiredTagsList, resourceGroups, invalidTagResourcesQuery.Results, auditConfig.SubscriptionId, stats);
+                    log.Info("Completed audit of subscription: " + auditConfig.SubscriptionId);
+                    stats.JobEnd = DateTime.Now;
 
-                TableOperation insertOperation = TableOperation.InsertOrReplace(stats);
-                await statsTbl.ExecuteAsync(insertOperation);
+                    TableOperation insertOperation = TableOperation.InsertOrReplace(stats);
+                    await statsTbl.ExecuteAsync(insertOperation);
+                }
+                catch (Exception ex)
+                {
+                    log.Error("Failure processing resource groups for auditConfig: " + auditConfig.RowKey);
+                    log.Error(ex.Message);
+                }
+
             }
         }
 
