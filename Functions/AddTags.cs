@@ -16,7 +16,7 @@ namespace AzureManagement.Function
     public static class AddTags
     {
         [FunctionName("AddTags")]
-        public static async void Run([QueueTrigger("resources-to-tag", Connection = "AzureWebJobsStorage"), Disable("true")]string myQueueItem,
+        public static async Task Run([QueueTrigger("resources-to-tag", Connection = "AzureWebJobsStorage"), Disable("true")]string myQueueItem,
             [Table("InvalidTagResources")] CloudTable invalidResourceTable,
             TraceWriter log)
         {

@@ -17,6 +17,8 @@ using System.Threading.Tasks;
 using Microsoft.Azure.Management.ResourceManager.Fluent.Models;
 using Microsoft.WindowsAzure.Storage.Table;
 using AzureManagement.Models;
+using AzureManagement.Services;
+using Microsoft.Azure.Services.AppAuthentication;
 
 namespace AzureManagement.Function
 {
@@ -41,7 +43,34 @@ namespace AzureManagement.Function
             log.Info("Starding subscription audit.");
             var invalidTagResourcesQuery = await invalidTypesTbl.ExecuteQuerySegmentedAsync(new TableQuery<InvalidTagResource>(), null);
             var auditConfigQuery = await configTbl.ExecuteQuerySegmentedAsync(new TableQuery<AuditConfig>(), null);
-            _client = new ResourceManagementClient(GetAccessToken());
+            TokenCredentials tokenCredential;
+
+            if (Environment.GetEnvironmentVariable("MSI_ENDPOINT") == null)
+            {
+                log.Info("Using service principal");
+                string appId = Environment.GetEnvironmentVariable("appId");
+                string appSecret = Environment.GetEnvironmentVariable("appSecret");
+                string tenantId = Environment.GetEnvironmentVariable("tenantId");
+                tokenCredential = AuthenticationService.GetAccessToken(appId, appSecret, tenantId);
+                // _client = new ResourceManagementClient(AuthenticationService.GetAccessToken(appId, appSecret, tenantId));
+            }
+            else
+            {
+                log.Info("Using MSI");
+                var azureServiceTokenProvider = new AzureServiceTokenProvider();
+                string token = await azureServiceTokenProvider.GetAccessTokenAsync("https://management.azure.com/");
+                tokenCredential = new TokenCredentials(token);
+                // _client = new ResourceManagementClient(new TokenCredentials(token));
+            }
+
+            try
+            {
+                _client = new ResourceManagementClient(tokenCredential);
+            }
+            catch(Exception ex)
+            {
+                log.Error("Unable to connect to the ARM API, Message: " + ex.Message);
+            }
 
             // Init config table if new deployment
             if (auditConfigQuery.Results.Count == 0)
@@ -205,6 +234,8 @@ namespace AzureManagement.Function
                 catch(Exception ex) { throw(ex); }
             }
         }
+
+        /*
         static TokenCredentials GetAccessToken()
         {
             string appId = Environment.GetEnvironmentVariable("appId");
@@ -215,6 +246,7 @@ namespace AzureManagement.Function
             AuthenticationResult token = authContext.AcquireTokenAsync("https://management.core.windows.net/", credential).Result;
             return new TokenCredentials(token.AccessToken);
         }
+        */
 
     }
 }
