@@ -31,7 +31,7 @@ namespace AzureManagement.Function
 
         [FunctionName("AuditResourceGroups")]
         public static async Task Run(
-            [TimerTrigger("0 0 */2 * * *", RunOnStartup = true)]TimerInfo myTimer,
+            [TimerTrigger("0 0 */2 * * *")] TimerInfo myTimer,
             [Table("AuditConfig")] CloudTable configTbl,
             [Table("AuditStats")] CloudTable statsTbl,
             [Table("InvalidTagResources")] CloudTable invalidTypesTbl,
