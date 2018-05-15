@@ -31,7 +31,7 @@ namespace AzureManagement.Function
 
         [FunctionName("AuditResourceGroups")]
         public static async Task Run(
-            [TimerTrigger("0 0 */2 * * *")]TimerInfo myTimer,
+            [TimerTrigger("0 0 */2 * * *", RunOnStartup = true)]TimerInfo myTimer,
             [Table("AuditConfig")] CloudTable configTbl,
             [Table("AuditStats")] CloudTable statsTbl,
             [Table("InvalidTagResources")] CloudTable invalidTypesTbl,
@@ -58,8 +58,7 @@ namespace AzureManagement.Function
             {
                 log.Info("Using MSI");
                 var azureServiceTokenProvider = new AzureServiceTokenProvider();
-                string token = await azureServiceTokenProvider.GetAccessTokenAsync("https://management.azure.com/");
-                log.Info("MSI Token is: " + token);
+                string token = await azureServiceTokenProvider.GetAccessTokenAsync("https://management.core.windows.net/");
                 tokenCredential = new TokenCredentials(token);
                 // _client = new ResourceManagementClient(new TokenCredentials(token));
             }
