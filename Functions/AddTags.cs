@@ -2,6 +2,7 @@ using System;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Host;
 using AzureManagement.Models;
+using AzureManagement.Services;
 using Newtonsoft.Json;
 using Microsoft.Rest;
 using Microsoft.IdentityModel.Clients.ActiveDirectory;
@@ -10,6 +11,7 @@ using Microsoft.Azure.Management.ResourceManager.Fluent.Models;
 using Microsoft.WindowsAzure.Storage.Table;
 using System.Threading.Tasks;
 using System.Linq;
+using Microsoft.Azure.Services.AppAuthentication;
 
 namespace AzureManagement.Function
 {
@@ -24,7 +26,25 @@ namespace AzureManagement.Function
 
             ResourceItem updateItem = JsonConvert.DeserializeObject<ResourceItem>(myQueueItem);
 
-            var client = new ResourceManagementClient(GetAccessToken());
+            TokenCredentials tokenCredential;
+
+            if (Environment.GetEnvironmentVariable("MSI_ENDPOINT") == null)
+            {
+                log.Info("Using service principal");
+                string appId = Environment.GetEnvironmentVariable("appId");
+                string appSecret = Environment.GetEnvironmentVariable("appSecret");
+                string tenantId = Environment.GetEnvironmentVariable("tenantId");
+                tokenCredential = AuthenticationService.GetAccessToken(appId, appSecret, tenantId);
+            }
+            else
+            {
+                log.Info("Using MSI");
+                var azureServiceTokenProvider = new AzureServiceTokenProvider();
+                string token = await azureServiceTokenProvider.GetAccessTokenAsync("https://management.core.windows.net/");
+                tokenCredential = new TokenCredentials(token);
+            }
+
+            var client = new ResourceManagementClient(tokenCredential);
             client.SubscriptionId = updateItem.Subscription;
             GenericResourceInner resource = null;
 
@@ -65,17 +85,6 @@ namespace AzureManagement.Function
                     await invalidResourceTable.ExecuteAsync(insertOperation);
                 }
             }
-        }
-
-        static TokenCredentials GetAccessToken()
-        {
-            string appId = Environment.GetEnvironmentVariable("appId");
-            string appSecret = Environment.GetEnvironmentVariable("appSecret");
-            string tenantId = Environment.GetEnvironmentVariable("tenantId");
-            var authContext = new AuthenticationContext(string.Format("https://login.windows.net/{0}", tenantId));
-            var credential = new ClientCredential(appId, appSecret);
-            AuthenticationResult token = authContext.AcquireTokenAsync("https://management.core.windows.net/", credential).Result;
-            return new TokenCredentials(token.AccessToken);
         }
     }
 }

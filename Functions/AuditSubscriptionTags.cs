@@ -52,7 +52,6 @@ namespace AzureManagement.Function
                 string appSecret = Environment.GetEnvironmentVariable("appSecret");
                 string tenantId = Environment.GetEnvironmentVariable("tenantId");
                 tokenCredential = AuthenticationService.GetAccessToken(appId, appSecret, tenantId);
-                // _client = new ResourceManagementClient(AuthenticationService.GetAccessToken(appId, appSecret, tenantId));
             }
             else
             {
@@ -60,7 +59,6 @@ namespace AzureManagement.Function
                 var azureServiceTokenProvider = new AzureServiceTokenProvider();
                 string token = await azureServiceTokenProvider.GetAccessTokenAsync("https://management.core.windows.net/");
                 tokenCredential = new TokenCredentials(token);
-                // _client = new ResourceManagementClient(new TokenCredentials(token));
             }
 
             try
