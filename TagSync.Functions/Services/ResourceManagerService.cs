@@ -44,7 +44,13 @@ namespace TagSync.Services
 
             foreach (var item in filteredResources)
             {
-                resourceList.Add(new ResourceItem { Id = item.Id, Subscription = subscriptionId, Location = item.Location, Type = item.Type, Tags = item.Tags, ApiVersion = await GetApiVersion(item.Type) });   
+                Dictionary<string, string> itemTags = new Dictionary<string, string>();
+                if (item.Tags != null)
+                {
+                    itemTags = item.Tags.ToDictionary(x => x.Key, x=> x.Value);
+                }
+
+                resourceList.Add(new ResourceItem { Id = item.Id, Subscription = subscriptionId, Location = item.Location, Type = item.Type, Tags = itemTags, ApiVersion = await GetApiVersion(item.Type) });   
             }
 
             return resourceList;

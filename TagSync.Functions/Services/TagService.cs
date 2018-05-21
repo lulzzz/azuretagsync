@@ -13,18 +13,10 @@ namespace TagSync.Services
         /// <param name="requiredTags">Required tags</param>
         public static Dictionary<string, string> GetRequiredTags(Dictionary<string, string> rgTags, IEnumerable<string> requiredTags )
         {
-            /*
-             * var keysIntersect = rgTags.Keys.Intersect(requiredTags);
-            if (keysIntersect != null && keysIntersect.Count() > 0)
-            {
-                return (Dictionary<string, string>) rgTags.Where(rg => keysIntersect.Contains(rg.Key));
-            }
-            */
+            var matchingTagsEnum = rgTags.Where(rg => requiredTags.Contains(rg.Key));
 
-            Dictionary<string, string> matchingTags = (Dictionary<string, string>)rgTags.Where(rg => requiredTags.Contains(rg.Key));
-
-            if (matchingTags != null && matchingTags.Count > 0)
-                return matchingTags;
+            if (matchingTagsEnum != null && matchingTagsEnum.Count() > 0)
+                return matchingTagsEnum.ToDictionary(x => x.Key, x => x.Value);
 
             return new Dictionary<string, string>();
         }
@@ -32,10 +24,10 @@ namespace TagSync.Services
         /// <summary>
         ///  Updates resources tags based on values from the resource group
         /// </summary>
-        /// <returns>All resrouce tags with new or updated tags from the resource group tags that are passed in</returns>
+        /// <returns>All resrouce tags with new or updated tags from the update tags that are passed in</returns>
         /// <param name="resourceTags">Resource tags.</param>
         /// <param name="updateTags">Required tags.</param>
-        public static IDictionary<string, string> GetTagUpdates(IDictionary<string, string> resourceTags, Dictionary<string, string> updateTags)
+        public static Dictionary<string, string> GetTagUpdates(Dictionary<string, string> resourceTags, Dictionary<string, string> updateTags)
         {
             bool tagUpadateRequired = false;
 
@@ -55,7 +47,7 @@ namespace TagSync.Services
                 }
                 else
                 {
-                    resourceTags.Add(requiredTag);
+                    resourceTags.Add(requiredTag.Key, requiredTag.Value);
                     tagUpadateRequired = true;
                 }
             }
