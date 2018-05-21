@@ -1,0 +1,21 @@
+﻿{
+  "bindings": [
+    {
+      "type": "queueTrigger",
+      "direction": "in",
+      "name": "myQueueItem",
+      "connection": "AzureWebJobsStorage",
+      "queueName": "resources-to-tag"
+    },
+    {
+      "type": "table",
+      "direction": "in",
+      "name": "invalidResourceTable",
+      "connection": "AzureWebJobsStorage",
+      "tableName": "InvalidTagResources"
+    }
+  ],
+  "disabled":  false,
+  "scriptFile": "../bin/Debug/netstandard2.0/bin/TagSync.Functions.dll",
+  "entryPoint": "TagSync.Functions.AddTags.Run"
+}

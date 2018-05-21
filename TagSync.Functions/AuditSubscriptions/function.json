@@ -1,0 +1,42 @@
+﻿{
+  "bindings": [
+    {
+      "type": "timerTrigger",
+      "schedule": "0 0 */2 * * *",
+      "useMonitor": true,
+      "runOnStartup": true,
+      "name": "myTimer"
+    },
+    {
+      "type": "table",
+      "direction": "in",
+      "name": "configTbl",
+      "connection": "AzureWebJobsStorage",
+      "tableName": "Auditconfig"
+    },
+    {
+      "type": "table",
+      "direction": "in",
+      "name": "invalidTypesTbl",
+      "connection": "AzureWebJobsStorage",
+      "tableName": "InvalidTagResources"
+    },
+    {
+      "type": "table",
+      "direction": "in",
+      "name": "statsTbl",
+      "connection": "AzureWebJobsStorage",
+      "tableName": "AuditStats"
+    },
+    {
+      "type": "queue",
+      "direction": "out",
+      "name": "outQueue",
+      "connection": "AzureWebJobsStorage",
+      "queueName": "resources-to-tag"
+    }
+  ],
+  "disabled": false,
+  "scriptFile": "../bin/Debug/netstandard2.0/bin/TagSync.Functions.dll",
+  "entryPoint": "TagSync.Functions.AuditSubscriptions.Run"
+}
