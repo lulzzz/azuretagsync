@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AzureFunctionsVersion>v2</AzureFunctionsVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <OutputPath>bin\Debug</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>bin\Release</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Azure.Services.AppAuthentication" Version="1.1.0-preview" />
+    <PackageReference Include="Microsoft.Azure.Management.Fluent" Version="1.10.0" />
+    <PackageReference Include="Microsoft.Azure.Management.ResourceManager.Fluent" Version="1.10.0" />
+    <PackageReference Include="Microsoft.NET.Sdk.Functions" Version="1.0.13" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="Debug\netstandard2.0\bin\de\Microsoft.Data.Edm.resources.dll" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="host.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="local.settings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+</Project>
