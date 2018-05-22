@@ -99,10 +99,18 @@ PowerShell
 New-AzureRmADServicePrincipal -DisplayName ServicePrincipalName
 ```
 
-When the service principal is created, document the ID, key, and the AAD tenant ID for use in the next step.
+When the Service Principal is created, document the ID, key, and the AAD tenant ID for use in the next step. Finally ensure the Service Principal has permissions to modify objects in your subscription(s).
 
 ### local.settings.json
+ In Azure, connection information that enables the Functions runtime to bind to services like Azure Storage (blobs, tables, and queues) is hosted in Application Settings. When the Functions runtime is running locally, this information is provided by a file named **local.settings.json**. This file contains sensitive information and is excluded from the repositroy, so you must download it from the Azure Portal 
 
+ To do this, navigate to the Function App in the Azure Portal and click the **Download app content** link at the top of the **Overview** page. At the prompt, be sure to select ***Include app settings in the download***.  Oncde the download completes, unzip the contents and copy **local.settings.json** to the root of the **TagSync.Functions** folder.
+
+ Finally, add ```appId```, ```appSecret```, and ```tenantId``` items to the JSON file and set the values to match the Service Principal you created earlier. The end result should look something like this:
+
+<img src="images/local-settings-json.png" width=60%>
+
+Assuming you have the [Functions 2.0 runtime installed and configured from your workstation](https://docs.microsoft.com/en-us/azure/azure-functions/functions-run-local#v2), you should now be able to successfuly run and debug this application locally.
 
  ## FAQ
 
