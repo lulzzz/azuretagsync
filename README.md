@@ -28,13 +28,13 @@ NOTE: At the time of this writing, there are issues with the latest beta runtime
 
 #### Enable Managed Service Identity (MSI)
 
-This application makes use of Managed Service Identity for authenticated access to your subscriptions. This is a great security feature that removes the burden of credential management for services running in Azure. Enable MSI by navigating to **Plafrom features** and selecting **Managed Service Identity (Preview)**. At the next screen, toggle **Register with Azure Active Directory** to **On** and click **Save**.
+This application makes use of Managed Service Identity for authenticated access to your subscriptions. This is a great security feature that removes the burden of credential management for services running in Azure. Enable MSI by navigating to **Platform features** and selecting **Managed Service Identity (Preview)**. At the next screen, toggle **Register with Azure Active Directory** to **On** and click **Save**.
 
 Next, you must assign the application permissions to each subscription you wish to enable for tag synchronization. This is achieved in the Azure Portal by using the search bar and entering **Subscriptions**. Click the suggested link and select a subscription displayed on the next page. In the settings blade, select **Access Control (IAM)** and click the **Add** button. On the Add Permissions blade at the right, select **Contributor** as the Role and enter the name of your function in the select bar. You should see your function app suggested as shown here:
 
 <img src="images/add-msi.png" width=40%>
 
-Select the fucntion app and click **Save**. Repeat this process for any additional subscriptions.
+Select the function app and click **Save**. Repeat this process for any additional subscriptions.
 
 #### Create the configuration tables
 
@@ -75,7 +75,7 @@ Information about every subscription audit performed by ```AuditSubscriptionTags
 
 ### InvalidTagResources
 
-Azure does not currently have a unified API for resource tagging. There are cases where exeptions will be thrown when attempting to tag certain resource types. These exceptions are handled by the ```AddTags``` function and written to this table.
+Azure does not currently have a unified API for resource tagging. There are cases where exceptions will be thrown when attempting to tag certain resource types. These exceptions are handled by the ```AddTags``` function and written to this table.
 
  <img src="images/invalid-tag-resources.png" width=75%>
 
@@ -102,7 +102,7 @@ New-AzureRmADServicePrincipal -DisplayName ServicePrincipalName
 When the Service Principal is created, document the ID, key, and the AAD tenant ID for use in the next step. Finally ensure the Service Principal has permissions to modify objects in your subscription(s).
 
 ### local.settings.json
- In Azure, connection information that enables the Functions runtime to bind to services like Azure Storage (blobs, tables, and queues) is hosted in Application Settings. When the Functions runtime is running locally, this information is provided by a file named **local.settings.json**. This file contains sensitive information and is excluded from the repositroy, so you must download it from the Azure Portal 
+ In Azure, connection information that enables the Functions runtime to bind to services like Azure Storage (blobs, tables, and queues) is hosted in Application Settings. When the Functions runtime is running locally, this information is provided by a file named **local.settings.json**. This file contains sensitive information and is excluded from the repository, so you must download it from the Azure Portal 
 
  To do this, navigate to the Function App in the Azure Portal and click the **Download app content** link at the top of the **Overview** page. At the prompt, be sure to select ***Include app settings in the download***.  Oncde the download completes, unzip the contents and copy **local.settings.json** to the root of the **TagSync.Functions** folder.
 
